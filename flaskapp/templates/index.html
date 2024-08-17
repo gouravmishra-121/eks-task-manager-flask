@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Task Manager</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        #tasks { margin-top: 20px; }
+        table { width: 100%; border-collapse: collapse; }
+        table, th, td { border: 1px solid black; }
+        th, td { padding: 10px; text-align: left; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+    <h1>Task Manager</h1>
+    {% if error %}
+        <p class="error">{{ error }}</p>
+    {% endif %}
+    <form id="taskForm">
+        <input type="text" id="taskId" placeholder="Task ID" required>
+        <input type="text" id="taskName" placeholder="Task Name" required>
+        <button type="submit">Add Task</button>
+    </form>
+    <div id="tasks">
+        <h2>Tasks</h2>
+        <table id="tasksTable">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+    <script>
+        document.getElementById('taskForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const taskId = document.getElementById('taskId').value;
+            const taskName = document.getElementById('taskName').value;
+            fetch('/tasks', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: taskId, name: taskName })
+            }).then(response => {
+                if (response.ok) {
+                    getTasks();
+                }
+            });
+        });
+
+        function getTasks() {
+            fetch('/tasks').then(response => response.json()).then(data => {
+                const tbody = document.getElementById('tasksTable').getElementsByTagName('tbody')[0];
+                tbody.innerHTML = '';
+                data.forEach(task => {
+                    const row = tbody.insertRow();
+                    row.insertCell(0).innerText = task.id;
+                    row.insertCell(1).innerText = task.name;
+                });
+            });
+        }
+
+        window.onload = getTasks;
+    </script>
+</body>
+</html>
