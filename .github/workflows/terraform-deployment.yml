@@ -42,6 +42,7 @@ jobs:
         run: terraform show -no-color tfplan
 
       - name: Terraform Apply
+        working-directory: Infra
         run: terraform apply -auto-approve tfplan
 
       - name: Terraform Destroy
