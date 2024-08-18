@@ -30,16 +30,20 @@ jobs:
     name: Manual Approval
     needs: checkout
     runs-on: ubuntu-latest
-    if: needs.checkout.outputs.action == 'apply'
+    if: ${{ needs.checkout.outputs.action == 'apply' }}
     steps:
-      - name: Wait for Approval
-        run: echo "Approval step: Manually approve to continue with Terraform Apply."
+      - name: Await Manual Approval
+        uses: hmarr/await-approval@v1
+        with:
+          message: "Please approve to continue with Terraform Apply"
+          reaction: "eyes" # Optionally, add a reaction for confirmation
+          token: ${{ secrets.GITHUB_TOKEN }} # Required for adding reactions
 
   terraform:
     name: Terraform Commands
     needs: approval
     runs-on: ubuntu-latest
-    if: needs.checkout.outputs.action == 'apply'
+    if: ${{ needs.checkout.outputs.action == 'apply' }}
     steps:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
@@ -72,11 +76,11 @@ jobs:
         run: terraform show -no-color tfplan
 
       - name: Terraform Apply
-        if: needs.checkout.outputs.action == 'apply'
+        if: ${{ needs.checkout.outputs.action == 'apply' }}
         working-directory: Infra
         run: terraform apply -auto-approve tfplan
 
       - name: Terraform Destroy
-        if: needs.checkout.outputs.action == 'destroy'
+        if: ${{ needs.checkout.outputs.action == 'destroy' }}
         working-directory: Infra
         run: terraform destroy -auto-approve
