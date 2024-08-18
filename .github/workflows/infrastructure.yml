@@ -46,6 +46,7 @@ jobs:
         run: terraform plan -out=tfplan
 
       - name: Display Terraform Plan
+        working-directory: Infra
         id: show-plan
         run: terraform show -no-color tfplan
 
