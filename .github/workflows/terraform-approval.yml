@@ -1,0 +1,23 @@
+name: Terraform Approval Workflow
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Choose action'
+        required: true
+        default: 'apply'
+        type: choice
+        options:
+          - apply
+          - destroy
+
+jobs:
+  approve:
+    name: Manual Approval
+    runs-on: ubuntu-latest
+    steps:
+      - name: Manual Approval Step
+        run: |
+          echo "This workflow requires manual approval."
+          echo "To proceed, manually trigger the Terraform deployment workflow."

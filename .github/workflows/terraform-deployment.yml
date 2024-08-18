@@ -1,49 +1,16 @@
-name: Terraform Workflow
+name: Terraform Deployment Workflow
 
 on:
   workflow_dispatch:
-    inputs:
-      action:
-        description: 'Choose action'
-        required: true
-        default: 'apply'
-        type: choice
-        options:
-          - apply
-          - destroy
 
 jobs:
-  checkout:
-    name: Checkout Code
+  terraform:
+    name: Terraform Deployment
     runs-on: ubuntu-latest
-    outputs:
-      action: ${{ steps.get-action.outputs.action }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Get Action Input
-        id: get-action
-        run: echo "::set-output name=action::${{ github.event.inputs.action }}"
-
-  approval:
-    name: Manual Approval
-    needs: checkout
-    runs-on: ubuntu-latest
-    if: ${{ needs.checkout.outputs.action == 'apply' }}
-    steps:
-      - name: Await Manual Approval
-        uses: peter-evans/manual-approval@v1
-        with:
-          approvers: 'your-github-username'
-          instructions: 'Please approve to continue with Terraform Apply'
-
-  terraform:
-    name: Terraform Commands
-    needs: approval
-    runs-on: ubuntu-latest
-    if: ${{ needs.checkout.outputs.action == 'apply' }}
-    steps:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
@@ -75,11 +42,9 @@ jobs:
         run: terraform show -no-color tfplan
 
       - name: Terraform Apply
-        if: ${{ needs.checkout.outputs.action == 'apply' }}
-        working-directory: Infra
         run: terraform apply -auto-approve tfplan
 
       - name: Terraform Destroy
-        if: ${{ needs.checkout.outputs.action == 'destroy' }}
+        if: github.event.inputs.action == 'destroy'
         working-directory: Infra
         run: terraform destroy -auto-approve
