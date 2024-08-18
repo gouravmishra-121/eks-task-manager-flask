@@ -1,0 +1,71 @@
+# .github/workflows/infrastructure.yml
+name: Infrastructure Workflow
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Choose action'
+        required: true
+        default: 'apply'
+        options:
+          - apply
+          - destroy
+
+jobs:
+  terraform:
+    name: Terraform Workflow
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.0
+
+      - name: Terraform Init
+        working-directory: Infra
+        run: terraform init
+
+      - name: Terraform Validate
+        working-directory: Infra
+        run: terraform validate
+
+      - name: Terraform Plan
+        working-directory: Infra
+        id: plan
+        run: terraform plan -out=tfplan
+
+      - name: Display Terraform Plan
+        id: show-plan
+        run: terraform show -no-color tfplan
+
+      - name: Apply Terraform (With Approval)
+        if: github.event.inputs.action == 'apply'
+        working-directory: Infra
+        run: terraform apply -auto-approve tfplan
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+        continue-on-error: false
+
+      - name: Capture ECR URI
+        if: github.event.inputs.action == 'apply'
+        working-directory: Infra
+        id: capture-ecr-uri
+        run: |
+          echo "ECR_URI=$(terraform output -raw ecr_repository_uri)" >> $GITHUB_ENV
+
+      - name: Destroy Infrastructure (With Approval)
+        if: github.event.inputs.action == 'destroy'
+        working-directory: Infra
+        run: terraform destroy -auto-approve
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+        continue-on-error: false
