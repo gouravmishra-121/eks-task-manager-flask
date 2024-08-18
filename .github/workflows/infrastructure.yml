@@ -33,11 +33,10 @@ jobs:
     if: ${{ needs.checkout.outputs.action == 'apply' }}
     steps:
       - name: Await Manual Approval
-        uses: hmarr/await-approval@v1
+        uses: peter-evans/manual-approval@v1
         with:
-          message: "Please approve to continue with Terraform Apply"
-          reaction: "eyes" # Optionally, add a reaction for confirmation
-          token: ${{ secrets.GITHUB_TOKEN }} # Required for adding reactions
+          approvers: 'your-github-username'
+          instructions: 'Please approve to continue with Terraform Apply'
 
   terraform:
     name: Terraform Commands
