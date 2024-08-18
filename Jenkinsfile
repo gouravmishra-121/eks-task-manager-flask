@@ -2,6 +2,8 @@ pipeline {
     agent any
 
     environment {
+        // Correctly append to PATH
+        PATH = "/opt/homebrew/bin:${env.PATH}"
         AWS_ACCESS_KEY_ID = credentials('aws-access-key-id')
         AWS_SECRET_ACCESS_KEY = credentials('aws-secret-access-key')
         AWS_REGION = 'us-east-1' // Set your AWS region
