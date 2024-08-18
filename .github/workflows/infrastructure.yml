@@ -1,4 +1,4 @@
-name: Infrastructure Workflow
+name: Terraform Workflow
 
 on:
   workflow_dispatch:
@@ -7,19 +7,40 @@ on:
         description: 'Choose action'
         required: true
         default: 'apply'
+        type: choice
         options:
           - apply
           - destroy
 
 jobs:
-  terraform:
-    name: Terraform Workflow
+  checkout:
+    name: Checkout Code
     runs-on: ubuntu-latest
-
+    outputs:
+      action: ${{ steps.get-action.outputs.action }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
+      - name: Get Action Input
+        id: get-action
+        run: echo "::set-output name=action::${{ github.event.inputs.action }}"
+
+  approval:
+    name: Manual Approval
+    needs: checkout
+    runs-on: ubuntu-latest
+    if: needs.checkout.outputs.action == 'apply'
+    steps:
+      - name: Wait for Approval
+        run: echo "Approval step: Manually approve to continue with Terraform Apply."
+
+  terraform:
+    name: Terraform Commands
+    needs: approval
+    runs-on: ubuntu-latest
+    if: needs.checkout.outputs.action == 'apply'
+    steps:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
@@ -50,19 +71,12 @@ jobs:
         id: show-plan
         run: terraform show -no-color tfplan
 
-      - name: Apply Terraform (With Approval)
-        if: github.event.inputs.action == 'apply'
+      - name: Terraform Apply
+        if: needs.checkout.outputs.action == 'apply'
         working-directory: Infra
         run: terraform apply -auto-approve tfplan
 
-      - name: Capture ECR URI
-        if: github.event.inputs.action == 'apply'
-        working-directory: Infra
-        id: capture-ecr-uri
-        run: |
-          echo "ECR_URI=$(terraform output -raw ecr_repository_uri)" >> $GITHUB_ENV
-
-      - name: Destroy Infrastructure (With Approval)
-        if: github.event.inputs.action == 'destroy'
+      - name: Terraform Destroy
+        if: needs.checkout.outputs.action == 'destroy'
         working-directory: Infra
         run: terraform destroy -auto-approve
