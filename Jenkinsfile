@@ -93,17 +93,19 @@ pipeline {
             }
             steps {
                 script {
-                    // Parse the Terraform output
-                    def outputJson = readJSON file: 'infra/terraform_output.json'
-                    if (outputJson['ecr_repository_url']?.value) {
-                        env.ECR_URI = outputJson['ecr_repository_url'].value
-                        echo "ECR URI: ${env.ECR_URI}"
+                    if (fileExists('infra/terraform_output.json')) {
+                        echo "terraform_output.json contents:"
+                        sh "cat infra/terraform_output.json"
+                        ef output = readJSON file: 'infra/terraform_output.json'
+                        ECR_URI = output.ecr_repository_url.value
+                        echo "Parsed ECR URI: ${ECR_URI}"
                     } else {
-                        error "ECR URI not found in Terraform output"
+                        error "terraform_output.json not found!"
                     }
                 }
             }
         }
+
 
         stage('Build Docker Image') {
             when {
