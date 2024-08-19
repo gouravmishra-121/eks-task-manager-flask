@@ -8,8 +8,6 @@ pipeline {
         AWS_REGION = 'us-east-1' // Set your AWS region
     }
     
-    
-
     parameters {
         choice(name: 'ACTION', choices: ['apply', 'destroy'], description: 'Choose whether to apply or destroy Terraform infrastructure.')
     }
@@ -24,7 +22,9 @@ pipeline {
         stage('Terraform Init') {
             steps {
                 dir('infra') {
-                    sh 'terraform init'
+                    script {
+                        sh 'terraform init'
+                    }
                 }
             }
         }
@@ -32,7 +32,9 @@ pipeline {
         stage('Terraform Plan') {
             steps {
                 dir('infra') {
-                    sh 'terraform plan -out=tfplan'
+                    script {
+                        sh 'terraform plan -out=tfplan'
+                    }
                 }
             }
         }
@@ -40,38 +42,33 @@ pipeline {
         stage('Display Terraform Plan') {
             steps {
                 dir('infra') {
-                    sh 'terraform show -no-color tfplan'
+                    script {
+                        sh 'terraform show -no-color tfplan'
+                    }
                 }
             }
         }
 
-        stage('Manual Approval') {
+        stage('Approval and Apply/Destroy') {
             when {
-                expression { return params.ACTION == 'apply' }
-            }
-            steps {
-                input message: 'Approve the Terraform Plan?', ok: 'Apply'
-            }
-        }
-
-        stage('Terraform Apply') {
-            when {
-                expression { return params.ACTION == 'apply' }
-            }
-            steps {
-                dir('infra') {
-                    sh 'terraform apply -auto-approve tfplan'
+                anyOf {
+                    expression { params.ACTION == 'apply' }
+                    expression { params.ACTION == 'destroy' }
                 }
             }
-        }
-
-        stage('Terraform Destroy') {
-            when {
-                expression { return params.ACTION == 'destroy' }
-            }
             steps {
-                dir('infra') {
-                    sh 'terraform destroy -auto-approve'
+                script {
+                    if (params.ACTION == 'apply') {
+                        input message: 'Approve the Terraform Plan?', ok: 'Apply'
+                        dir('infra') {
+                            sh 'terraform apply -auto-approve tfplan'
+                        }
+                    } else if (params.ACTION == 'destroy') {
+                        input message: 'Approve the destruction of Terraform infrastructure?', ok: 'Destroy'
+                        dir('infra') {
+                            sh 'terraform destroy -auto-approve'
+                        }
+                    }
                 }
             }
         }
@@ -79,7 +76,14 @@ pipeline {
 
     post {
         always {
-            cleanWs()
+            cleanWs() // Clean up the workspace
+        }
+        success {
+            echo 'Pipeline completed successfully'
+        }
+        failure {
+            echo 'Pipeline failed'
+            // Add additional failure notifications or actions here if needed
         }
     }
 }
