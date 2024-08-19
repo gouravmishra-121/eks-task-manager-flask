@@ -69,6 +69,7 @@ pipeline {
                     script {
                         if (params.ACTION == 'apply') {
                             sh 'terraform apply -auto-approve tfplan'
+                            sh 'terraform output -json > terraform_output.json'
                         } else if (params.ACTION == 'destroy') {
                             sh 'terraform destroy -auto-approve'
                         }
@@ -76,6 +77,74 @@ pipeline {
                 }
             }
         }
+
+        stage('Parse Terraform Output') {
+            when {
+                expression { params.ACTION == 'apply' }
+            }
+            steps {
+                script {
+                    def outputJson = readJSON file: 'infra/terraform_output.json'
+                    def ecrUri = outputJson['ECR URI']
+                    env.ECR_URI = ecrUri
+                    echo "ECR URI: ${env.ECR_URI}"
+                }
+            }
+        }
+
+        stage('Build Docker Image') {
+            when {
+                expression { params.ACTION == 'apply' }
+            }
+            steps {
+                dir('flaskapp') {
+                    script {
+                        sh 'docker build -t my-flask-app:latest .'
+                    }
+                }
+            }
+        }
+
+        stage('Login to ECR') {
+            when {
+                expression { params.ACTION == 'apply' }
+            }
+            steps {
+                script {
+                    sh """
+                    aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${env.ECR_URI}
+                    """
+                }
+            }
+        }
+
+        stage('Tag Docker Image') {
+            when {
+                expression { params.ACTION == 'apply' }
+            }
+            steps {
+                script {
+                    sh """
+                    docker tag my-flask-app:latest ${env.ECR_URI}/my-flask-app:latest
+                    """
+                }
+            }
+        }
+
+        stage('Push Docker Image to ECR') {
+            when {
+                expression { params.ACTION == 'apply' }
+            }
+            steps {
+                script {
+                    sh """
+                    docker push ${env.ECR_URI}/my-flask-app:latest
+                    """
+                }
+            }
+        }
+        
+        // Additional deployment steps can go here
     }
 
     post {
@@ -87,7 +156,6 @@ pipeline {
         }
         failure {
             echo 'Pipeline failed'
-            // Add additional failure notifications or actions here if needed
         }
     }
 }
