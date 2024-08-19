@@ -93,9 +93,14 @@ pipeline {
             }
             steps {
                 script {
-                    def output = readJSON file: 'infra/terraform_output.json'
-                    ECR_URI = output.ecr_repository_url.value
-                    echo "Parsed ECR URI: ${ECR_URI}"  // Debugging line
+                    // Parse the Terraform output
+                    def outputJson = readJSON file: 'infra/terraform_output.json'
+                    if (outputJson['ecr_repository_url']?.value) {
+                        env.ECR_URI = outputJson['ecr_repository_url'].value
+                        echo "ECR URI: ${env.ECR_URI}"
+                    } else {
+                        error "ECR URI not found in Terraform output"
+                    }
                 }
             }
         }
@@ -106,7 +111,7 @@ pipeline {
             }
             steps {
                 dir('flaskapp') {
-                    echo "Building Docker image with ECR URI: ${ECR_URI}"  // Debugging line
+                    echo "Building Docker image with ECR URI: ${ECR_URI}"
                     sh "docker build -t my-flask-app ."
                 }
             }
@@ -118,7 +123,7 @@ pipeline {
             }
             steps {
                 script {
-                    echo "Logging in to ECR: ${ECR_URI}"  // Debugging line
+                    echo "Logging in to ECR: ${ECR_URI}"
                     sh "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_URI}"
                 }
             }
@@ -130,7 +135,7 @@ pipeline {
             }
             steps {
                 script {
-                    echo "Tagging and pushing Docker image to: ${ECR_URI}"  // Debugging line
+                    echo "Tagging and pushing Docker image to: ${ECR_URI}"
                     sh "docker tag my-flask-app:latest ${ECR_URI}:latest"
                     sh "docker push ${ECR_URI}:latest"
                 }
