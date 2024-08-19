@@ -6,10 +6,7 @@ pipeline {
         AWS_SECRET_ACCESS_KEY = credentials('aws-secret-access-key')
         AWS_REGION = 'us-east-1' // Set your AWS region
     }
-
-    tools {
-        terraform 'terraform_1.9.4'  // Reference the name you used in the Global Tool Configuration
-    }
+    
 
     parameters {
         choice(name: 'ACTION', choices: ['apply', 'destroy'], description: 'Choose whether to apply or destroy Terraform infrastructure.')
