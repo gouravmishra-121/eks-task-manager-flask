@@ -49,23 +49,27 @@ pipeline {
             }
         }
 
-        stage('Approval and Apply/Destroy') {
+        stage('Manual Approval') {
             when {
-                anyOf {
-                    expression { params.ACTION == 'apply' }
-                    expression { params.ACTION == 'destroy' }
-                }
+                expression { return params.ACTION == 'apply' || params.ACTION == 'destroy' }
             }
             steps {
                 script {
-                    if (params.ACTION == 'apply') {
-                        input message: 'Approve the Terraform Plan?', ok: 'Apply'
-                        dir('infra') {
+                    input message: "Approve the Terraform ${params.ACTION}?", ok: "${params.ACTION.capitalize()}"
+                }
+            }
+        }
+
+        stage('Execute Terraform Action') {
+            when {
+                expression { return params.ACTION == 'apply' || params.ACTION == 'destroy' }
+            }
+            steps {
+                dir('infra') {
+                    script {
+                        if (params.ACTION == 'apply') {
                             sh 'terraform apply -auto-approve tfplan'
-                        }
-                    } else if (params.ACTION == 'destroy') {
-                        input message: 'Approve the destruction of Terraform infrastructure?', ok: 'Destroy'
-                        dir('infra') {
+                        } else if (params.ACTION == 'destroy') {
                             sh 'terraform destroy -auto-approve'
                         }
                     }
