@@ -53,15 +53,24 @@ pipeline {
             }
         }
 
-        stage('Terraform Apply') {
+        stage('Terraform Apply and Save Output') {
             when {
                 expression { return params.ACTION == 'apply' }
             }
             steps {
                 dir('infra') {
                     script {
-                        def output = sh(returnStdout: true, script: 'terraform apply -auto-approve tfplan && terraform output -json').trim()
-                        writeFile file: 'infra/terraform_output.json', text: output
+                        // Apply the Terraform plan
+                        def applyOutput = sh(returnStdout: true, script: 'terraform apply -auto-approve tfplan').trim()
+                        echo "Terraform Apply Output: ${applyOutput}"  // Debugging line
+
+                        // Capture Terraform outputs to a JSON file
+                        def output = sh(returnStdout: true, script: 'terraform output -json').trim()
+                        echo "Terraform JSON Output: ${output}"  // Debugging line
+                        
+                        // Write the JSON output to a file
+                        writeFile file: 'terraform_output.json', text: output
+                        echo "Output written to terraform_output.json"  // Debugging line
                     }
                 }
             }
@@ -93,10 +102,13 @@ pipeline {
             }
             steps {
                 script {
+                    // Check if the JSON file exists
                     if (fileExists('infra/terraform_output.json')) {
                         echo "terraform_output.json contents:"
                         sh "cat infra/terraform_output.json"
-                        ef output = readJSON file: 'infra/terraform_output.json'
+                        
+                        // Attempt to read the file
+                        def output = readJSON file: 'infra/terraform_output.json'
                         ECR_URI = output.ecr_repository_url.value
                         echo "Parsed ECR URI: ${ECR_URI}"
                     } else {
@@ -106,14 +118,13 @@ pipeline {
             }
         }
 
-
         stage('Build Docker Image') {
             when {
                 expression { params.ACTION == 'apply' }
             }
             steps {
                 dir('flaskapp') {
-                    echo "Building Docker image with ECR URI: ${ECR_URI}"
+                    echo "Building Docker image with ECR URI: ${ECR_URI}"  // Debugging line
                     sh "docker build -t my-flask-app ."
                 }
             }
@@ -125,7 +136,7 @@ pipeline {
             }
             steps {
                 script {
-                    echo "Logging in to ECR: ${ECR_URI}"
+                    echo "Logging in to ECR: ${ECR_URI}"  // Debugging line
                     sh "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_URI}"
                 }
             }
@@ -137,7 +148,7 @@ pipeline {
             }
             steps {
                 script {
-                    echo "Tagging and pushing Docker image to: ${ECR_URI}"
+                    echo "Tagging and pushing Docker image to: ${ECR_URI}"  // Debugging line
                     sh "docker tag my-flask-app:latest ${ECR_URI}:latest"
                     sh "docker push ${ECR_URI}:latest"
                 }
