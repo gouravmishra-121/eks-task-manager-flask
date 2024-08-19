@@ -84,10 +84,18 @@ pipeline {
             }
             steps {
                 script {
+                    // Read and print the output file for debugging
+                    sh 'cat infra/terraform_output.json'
+                    
                     def outputJson = readJSON file: 'infra/terraform_output.json'
-                    def ecrUri = outputJson['ECR URI']
-                    env.ECR_URI = ecrUri
-                    echo "ECR URI: ${env.ECR_URI}"
+                    
+                    if (outputJson['ecr_repository_url']) {
+                        def ecrUri = outputJson['ecr_repository_url']
+                        env.ECR_URI = ecrUri
+                        echo "ECR URI: ${env.ECR_URI}"
+                    } else {
+                        error "ECR URI not found in Terraform output"
+                    }
                 }
             }
         }
@@ -143,8 +151,6 @@ pipeline {
                 }
             }
         }
-        
-        // Additional deployment steps can go here
     }
 
     post {
