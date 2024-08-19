@@ -88,6 +88,9 @@ pipeline {
         }
 
         stage('Parse Terraform Output') {
+            when {
+                expression { params.ACTION == 'apply' }
+            }
             steps {
                 script {
                     def output = readJSON file: 'infra/terraform_output.json'
@@ -98,6 +101,9 @@ pipeline {
         }
 
         stage('Build Docker Image') {
+            when {
+                expression { params.ACTION == 'apply' }
+            }
             steps {
                 dir('flaskapp') {
                     echo "Building Docker image with ECR URI: ${ECR_URI}"  // Debugging line
@@ -107,6 +113,9 @@ pipeline {
         }
 
         stage('Login to ECR') {
+            when {
+                expression { params.ACTION == 'apply' }
+            }
             steps {
                 script {
                     echo "Logging in to ECR: ${ECR_URI}"  // Debugging line
@@ -116,6 +125,9 @@ pipeline {
         }
 
         stage('Tag and Push Docker Image') {
+            when {
+                expression { params.ACTION == 'apply' }
+            }
             steps {
                 script {
                     echo "Tagging and pushing Docker image to: ${ECR_URI}"  // Debugging line
