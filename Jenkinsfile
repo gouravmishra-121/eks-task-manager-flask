@@ -84,14 +84,10 @@ pipeline {
             }
             steps {
                 script {
-                    // Read and print the output file for debugging
                     sh 'cat infra/terraform_output.json'
-                    
                     def outputJson = readJSON file: 'infra/terraform_output.json'
-                    
-                    if (outputJson['ecr_repository_url']) {
-                        def ecrUri = outputJson['ecr_repository_url']
-                        env.ECR_URI = ecrUri
+                    if (outputJson['ecr_repository_url']?.value) {
+                        env.ECR_URI = outputJson['ecr_repository_url'].value
                         echo "ECR URI: ${env.ECR_URI}"
                     } else {
                         error "ECR URI not found in Terraform output"
@@ -99,6 +95,7 @@ pipeline {
                 }
             }
         }
+
 
         stage('Build Docker Image') {
             when {
