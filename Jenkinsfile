@@ -15,7 +15,70 @@ pipeline {
 
     stages {
         // Checkout, Terraform Init, Terraform Plan, etc.
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
 
+        stage('Terraform Init') {
+            steps {
+                dir('infra') {
+                    script {
+                        sh 'terraform init'
+                    }
+                }
+            }
+        }
+
+        stage('Terraform Plan') {
+            steps {
+                dir('infra') {
+                    script {
+                        sh 'terraform plan -out=tfplan'
+                    }
+                }
+            }
+        }
+        stage('Display Terraform Plan') {
+            steps {
+                dir('infra') {
+                    script {
+                        sh 'terraform show -no-color tfplan'
+                    }
+                }
+            }
+        }
+
+        stage('Manual Approval') {
+            when {
+                expression { return params.ACTION == 'apply' || params.ACTION == 'destroy' }
+            }
+            steps {
+                script {
+                    input message: "Approve the Terraform ${params.ACTION}?", ok: "${params.ACTION.capitalize()}"
+                }
+            }
+        }
+
+        stage('Execute Terraform Action') {
+            when {
+                expression { return params.ACTION == 'apply' || params.ACTION == 'destroy' }
+            }
+            steps {
+                dir('infra') {
+                    script {
+                        if (params.ACTION == 'apply') {
+                            sh 'terraform apply -auto-approve tfplan'
+                            sh 'terraform output -json > terraform_output.json'
+                        } else if (params.ACTION == 'destroy') {
+                            sh 'terraform destroy -auto-approve'
+                        }
+                    }
+                }
+            }
+        }
+        
         stage('Parse Terraform Output') {
             when {
                 expression { params.ACTION == 'apply' }
