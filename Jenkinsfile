@@ -156,9 +156,9 @@ pipeline {
                 }
             }
         }
-    }
+    
 
-    stage('Replace ECR URI in Deployment YAML') {
+        stage('Replace ECR URI in Deployment YAML') {
             when {
                 expression { params.ACTION == 'apply' }
             }
@@ -184,9 +184,7 @@ pipeline {
                 }
             }
         }
-
-        
-
+    }
 
     post {
         always {
