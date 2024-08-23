@@ -7,6 +7,8 @@ pipeline {
         AWS_SECRET_ACCESS_KEY = credentials('aws-secret-access-key')
         AWS_REGION = 'us-east-1'
         ECR_URI = ""
+        KUBECONFIG = "${HOME}/.kube/config"  // Adjust if necessary
+
     }
 
     parameters {
@@ -125,7 +127,7 @@ pipeline {
             steps {
                 dir('flaskapp') {
                     echo "Building Docker image with ECR URI: ${ECR_URI}"  // Debugging line
-                    sh "docker build -t my-flask-app ."
+                    sh "docker build --platform linux/amd64 -t my-flask-app ."
                 }
             }
         }
@@ -155,6 +157,36 @@ pipeline {
             }
         }
     }
+
+    stage('Replace ECR URI in Deployment YAML') {
+            when {
+                expression { params.ACTION == 'apply' }
+            }
+            steps {
+                dir('manifest') {
+                    script {
+                        echo "ECR URI: ${ECR_URI}"  // Debugging line
+                        // Replace placeholder in deployment.yml with actual ECR URI
+                        sh "sed -i '' 's|<ECR_URI>|${ECR_URI}|g' deployment.yml"
+                    }
+                }
+            }
+        }
+
+        stage('Verify Deployment YAML') {
+            when {
+                expression { params.ACTION == 'apply' }
+            }
+            steps {
+                script {
+                    echo "Updated deployment.yml contents:"
+                    sh "cat manifest/deployment.yml"
+                }
+            }
+        }
+
+        
+
 
     post {
         always {
