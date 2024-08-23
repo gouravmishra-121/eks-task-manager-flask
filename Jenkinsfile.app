@@ -46,6 +46,36 @@ pipeline {
             }
         }
 
+        stage('Configure EKS') {
+            steps {
+                script {
+                    echo "Configuring kubectl to use EKS cluster"
+                    sh "aws eks update-kubeconfig --name my-cluster --region ${AWS_REGION}"
+                }
+            }
+        }
+
+        stage('Apply Kubernetes Manifests') {
+            steps {
+                dir('manifest') {
+                    echo "Applying Kubernetes manifests"
+                    sh "kubectl apply -f deployment.yml"
+                    sh "kubectl apply -f service.yml"
+                }
+            }
+        }
+        stage('Check Kubernetes Resources') {
+            steps {
+                script {
+                    echo "Checking Kubernetes resources"
+                    sh "kubectl get pods"
+                    sh "kubectl get services"
+                }
+            }
+        }
+
+
+
     }  
 
     post {
