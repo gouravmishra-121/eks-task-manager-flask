@@ -79,6 +79,10 @@ pipeline {
                     sh "kubectl apply -f deployment.yml"
                     sleep time: 60, unit: 'SECONDS'
                     sh "kubectl apply -f service.yml"
+                    sleep time: 60, unit: 'SECONDS'
+                    sh "kubectl apply -f cloudwatch-agent-configmap.yml"
+                    sleep time: 60, unit: 'SECONDS'
+                    sh"kubectl apply -f cloudwatch-agent-daemonset.yaml"
                 }
             }
         }
