@@ -61,7 +61,10 @@ def delete_task(task_id):
     try:
         dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
         table = dynamodb.Table('Tasks')
-        response = table.delete_item(Key={'id': task_id})
+        response = table.delete_item(
+            Key={'id': task_id},
+            ReturnValues='ALL_OLD'  # Returns the attributes of the deleted item
+        )
         if 'Attributes' in response:
             return jsonify({"message": "Task deleted"}), 200
         else:
@@ -69,5 +72,7 @@ def delete_task(task_id):
     except (ClientError, NoCredentialsError, EndpointConnectionError) as e:
         return jsonify({"error": "DynamoDB Connection Failed: " + str(e)}), 500
 
+
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=80, debug=True)
+

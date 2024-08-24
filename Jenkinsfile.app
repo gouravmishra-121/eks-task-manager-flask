@@ -77,6 +77,7 @@ pipeline {
                 dir('manifest') {
                     echo "Applying Kubernetes manifests"
                     sh "kubectl apply -f deployment.yml"
+                    sleep time: 60, unit: 'SECONDS'
                     sh "kubectl apply -f service.yml"
                 }
             }
@@ -94,28 +95,6 @@ pipeline {
                 }
             }
         }
-
-        stage('Delete ECR Images') {
-            when {
-                expression { params.ACTION == 'destroy' }
-            }
-            steps {
-                script {
-                    echo "Deleting all images from ECR repository"
-                    sh '''
-                        imageDigests=$(aws ecr list-images --repository-name my-flask-app --query 'imageIds[*]' --output json | jq -r '.[].imageDigest')
-                        if [ -n "$imageDigests" ]; then
-                            for digest in $imageDigests; do
-                                aws ecr batch-delete-image --repository-name my-flask-app --image-ids imageDigest=$digest
-                            done
-                        else
-                            echo "No images found in ECR repository"
-                        fi
-                    '''
-                }
-            }
-        }
-
         stage('Check Kubernetes Resources') {
             when {
                 expression { params.ACTION == 'apply' }
