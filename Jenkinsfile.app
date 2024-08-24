@@ -6,7 +6,11 @@ pipeline {
         AWS_ACCESS_KEY_ID = credentials('aws-access-key-id')
         AWS_SECRET_ACCESS_KEY = credentials('aws-secret-access-key')
         AWS_REGION = 'us-east-1'
-        KUBECONFIG = "${HOME}/.kube/config"
+        ECR_REPOSITORY = '905418002997.dkr.ecr.us-east-1.amazonaws.com/my-flask-app'
+    }
+
+    parameters {
+        choice(name: 'ACTION', choices: ['apply', 'destroy'], description: 'Choose apply to deploy or destroy to delete')
     }
 
     stages {
@@ -16,9 +20,10 @@ pipeline {
             }
         }
 
-        
-
         stage('Build Docker Image') {
+            when {
+                expression { params.ACTION == 'apply' }
+            }
             steps {
                 dir('flaskapp') {
                     echo "Building Docker image with ECR URI"
@@ -28,25 +33,34 @@ pipeline {
         }
 
         stage('Login to ECR') {
+            when {
+                expression { params.ACTION == 'apply' }
+            }
             steps {
                 script {
                     echo "Logging in to ECR"
-                    sh "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin 905418002997.dkr.ecr.us-east-1.amazonaws.com/my-flask-app"
+                    sh "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REPOSITORY}"
                 }
             }
         }
 
         stage('Tag and Push Docker Image') {
+            when {
+                expression { params.ACTION == 'apply' }
+            }
             steps {
                 script {
-                    echo "Tagging and pushing Docker image to"
-                    sh "docker tag my-flask-app:latest 905418002997.dkr.ecr.us-east-1.amazonaws.com/my-flask-app:latest"
-                    sh "docker push 905418002997.dkr.ecr.us-east-1.amazonaws.com/my-flask-app:latest"
+                    echo "Tagging and pushing Docker image"
+                    sh "docker tag my-flask-app:latest ${ECR_REPOSITORY}:latest"
+                    sh "docker push ${ECR_REPOSITORY}:latest"
                 }
             }
         }
 
         stage('Configure EKS') {
+            when {
+                expression { params.ACTION == 'apply' }
+            }
             steps {
                 script {
                     echo "Configuring kubectl to use EKS cluster"
@@ -56,6 +70,9 @@ pipeline {
         }
 
         stage('Apply Kubernetes Manifests') {
+            when {
+                expression { params.ACTION == 'apply' }
+            }
             steps {
                 dir('manifest') {
                     echo "Applying Kubernetes manifests"
@@ -64,7 +81,45 @@ pipeline {
                 }
             }
         }
+
+        stage('Destroy Kubernetes Manifests') {
+            when {
+                expression { params.ACTION == 'destroy' }
+            }
+            steps {
+                dir('manifest') {
+                    echo "Destroying Kubernetes manifests"
+                    sh "kubectl delete -f deployment.yml"
+                    sh "kubectl delete -f service.yml"
+                }
+            }
+        }
+
+        stage('Delete ECR Images') {
+            when {
+                expression { params.ACTION == 'destroy' }
+            }
+            steps {
+                script {
+                    echo "Deleting all images from ECR repository"
+                    sh '''
+                        imageDigests=$(aws ecr list-images --repository-name my-flask-app --query 'imageIds[*]' --output json | jq -r '.[].imageDigest')
+                        if [ -n "$imageDigests" ]; then
+                            for digest in $imageDigests; do
+                                aws ecr batch-delete-image --repository-name my-flask-app --image-ids imageDigest=$digest
+                            done
+                        else
+                            echo "No images found in ECR repository"
+                        fi
+                    '''
+                }
+            }
+        }
+
         stage('Check Kubernetes Resources') {
+            when {
+                expression { params.ACTION == 'apply' }
+            }
             steps {
                 script {
                     echo "Checking Kubernetes resources"
@@ -73,10 +128,7 @@ pipeline {
                 }
             }
         }
-
-
-
-    }  
+    }
 
     post {
         always {
